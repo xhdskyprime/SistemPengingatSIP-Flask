@@ -31,34 +31,36 @@ class SIP(db.Model):
 @app.route('/')
 def index():
     search_query = request.args.get('search', '').strip()
-    today = datetime.today().date()
-    reminder_date = today + timedelta(days=180)
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Jumlah data per halaman
 
+    # Filter jika ada pencarian
+    query = SIP.query
     if search_query:
-        sips = SIP.query.filter(SIP.nama.ilike(f"%{search_query}%")).all()
-    else:
-        sips = SIP.query.all()
+        query = query.filter(SIP.nama.ilike(f"%{search_query}%"))
 
+    # Pagination
+    sips_paginated = query.order_by(SIP.tanggal_kadaluwarsa.asc()).paginate(page=page, per_page=per_page)
+
+    today = datetime.today().date()
     akan_expired = SIP.query.filter(
-    SIP.tanggal_kadaluwarsa <= datetime.utcnow() + timedelta(days=180)
-).order_by(SIP.tanggal_kadaluwarsa.asc()).all()
+        SIP.tanggal_kadaluwarsa <= datetime.utcnow() + timedelta(days=180)
+    ).order_by(SIP.tanggal_kadaluwarsa.asc()).all()
 
-
-    
     for sip in akan_expired:
         sisa_hari_total = (sip.tanggal_kadaluwarsa - today).days
         bulan = sisa_hari_total // 30
         hari = sisa_hari_total % 30
         sip.sisa_hari_format = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
 
-
-
     return render_template(
         'index.html',
-        sips=sips,
+        sips=sips_paginated.items,
+        sips_paginated=sips_paginated,
         today=today,
         akan_expired=akan_expired
     )
+
 
     # Pastikan pengguna sudah login
     if 'logged_in' not in session:
@@ -200,32 +202,32 @@ def trigger_force_all():
     db.session.commit()
     return redirect(url_for('index'))
 
-@app.route('/lihat_sip_akan_expired')
-def lihat_sip_akan_expired():
-    today = datetime.today().date()
-    batas_expired = today + timedelta(days=30)
+# @app.route('/lihat_sip_akan_expired')
+# def lihat_sip_akan_expired():
+#     today = datetime.today().date()
+#     batas_expired = today + timedelta(days=30)
     
-    conn = sqlite3.connect('sip.db')
-    c = conn.cursor()
-    c.execute("SELECT * FROM sip")
-    data = c.fetchall()
-    conn.close()
+#     conn = sqlite3.connect('sip.db')
+#     c = conn.cursor()
+#     c.execute("SELECT * FROM sip")
+#     data = c.fetchall()
+#     conn.close()
 
-    expired_list = []
-    for row in data:
-        tanggal_kadaluwarsa = datetime.strptime(row[5], "%Y-%m-%d").date()
-        if today <= tanggal_kadaluwarsa <= batas_expired:
-            sisa_hari = (tanggal_kadaluwarsa - today).days
-            expired_list.append({
-                'nama': row[1],
-                'email': row[2],
-                'no_sip': row[3],
-                'tanggal_terbit': row[4],
-                'tanggal_kadaluwarsa': row[5],
-                'sisa_hari': sisa_hari  # ← tambahin ini
-            })
+#     expired_list = []
+#     for row in data:
+#         tanggal_kadaluwarsa = datetime.strptime(row[5], "%Y-%m-%d").date()
+#         if today <= tanggal_kadaluwarsa <= batas_expired:
+#             sisa_hari = (tanggal_kadaluwarsa - today).days
+#             expired_list.append({
+#                 'nama': row[1],
+#                 'email': row[2],
+#                 'no_sip': row[3],
+#                 'tanggal_terbit': row[4],
+#                 'tanggal_kadaluwarsa': row[5],
+#                 'sisa_hari': sisa_hari  # ← tambahin ini
+#             })
 
-    return render_template('expired.html', expired_list=expired_list)
+#     return render_template('notif_popup.html', expired_list=expired_list)
 
 from flask import session, flash, redirect, url_for
 

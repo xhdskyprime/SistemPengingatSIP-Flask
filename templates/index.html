@@ -1,117 +1,182 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
-    <title>Daftar Surat Izin Praktek</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Dashboard SIP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" crossorigin="anonymous">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .card-header {
+            background-color: #0d6efd;
+            color: white;
+        }
+    </style>
 </head>
-<body class="bg-light">
 
-<div class="container py-4">
-    <h2 class="mb-4">Daftar Surat Izin Praktek</h2>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-primary-subtle">
+        <div class="container-fluid" style="padding-left: 50px;">
+            <a class="navbar-brand" href="#" style="font-weight: bold; font-size: 34px; color: #3b076c;">
+                <i class="fa-solid fa-hospital"></i>
+                RSUD TIGARAKSA
+            </a>
+        </div>
+    </nav>
+    <div class="container py-4">
 
-<!-- Tombol trigger modal -->
-
-
-    <!-- Tombol Tambah, Kirim Notif, Paksa -->
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal">
-            + Tambah Data Baru
-        
-
-        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#notifModal">
-            🔔 Lihat SIP Akan Expired
-        </button>
-    
-        <form method="GET" action="{{ url_for('index') }}" class="ms-auto" style="max-width: 300px;">
-            <div class="input-group input-group-sm">
-                <input type="text" name="search" value="{{ request.args.get('search', '') }}" class="form-control" placeholder="Cari nama...">
-                <button type="submit" class="btn btn-outline-secondary">🔍</button>
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="fw-bold">📋 Daftar Surat Izin Praktek</h2>
+            {% if 'logged_in' in session %}
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
+            {% endif %}
+        </div>
+        <!-- Aksi Bar -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal">
+                        <i class="fa-solid fa-add"></i> Tambah Data Baru
+                    </button>
+                    <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#notifModal">
+                        <i class="fa-solid fa-bell"></i> Lihat SIP Akan Expired
+                    </button>
+                    <a href="{{ url_for('trigger_force_all') }}" class="btn btn-outline-info">
+                        <i class="fa-solid fa-mobile"></i> Kirim Telegram
+                    </a>
+                    <a href="{{ url_for('send_email_massal') }}" class="btn btn-outline-primary">
+                        <i class="fa-solid fa-envelope"></i> Kirim Email
+                    </a>
+                    <a href="{{ url_for('send_rekap_expired') }}" class="btn btn-warning">
+                        <i class="fa-solid fa-clipboard"></i> Kirim Rekap
+                    </a>
+                </div>
+                <form method="GET" action="{{ url_for('index') }}" class="d-flex" style="max-width: 300px;">
+                    <input type="text" name="search" value="{{ request.args.get('search', '') }}"
+                        class="form-control me-2" placeholder="Cari nama...">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </form>
             </div>
-        </form>
-    </div>
-    
+        </div>
 
-  <!-- Sisipkan popup notifikasi -->
-{% include "notif_popup.html" %}
-<!--popup tambah -->
-{% include "add.html" %}
-
-{% if 'logged_in' in session %}
-    <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
-{% else %}
-{% endif %}
-
-    
-    
-    <!-- Tabel Data SIP -->
-    <table class="table table-bordered table-striped table-hover mt-3">
-        <thead class="table-secondary">
-            <tr>
-                <th>Nama</th>
-                <th>Email</th>
-                <th>No SIP</th>
-                <th>Tanggal Terbit</th>
-                <th>Tanggal Kadaluwarsa</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for sip in sips %}
-                <tr>
-                    <td>{{ sip.nama }}</td>
-                    <td>{{ sip.email }}</td>
-                    <td>{{ sip.no_sip }}</td>
-                    <td>{{ sip.tanggal_terbit }}</td>
-                    <td>{{ sip.tanggal_kadaluwarsa }}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ sip.id }}">
-                            Edit
-                        </button>
+        {% include "notif_popup.html" %}
+        {% include "add.html" %}
+        <div class="card shadow-sm">
+            <!-- Tabel SIP -->
+            <div class="card-body table-responsive shadow-sm">
+                <table class="table table-bordered table-striped table-hover align-middle text-nowrap">
+                    <thead class="table-light text-center">
+                        <tr>
+                            <th>Nama</th>
+                            <th>Email</th>
+                            <th>No SIP</th>
+                            <th>Tanggal Terbit</th>
+                            <th>Tanggal Kadaluwarsa</th>
+                            <th style="width: 100px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         {% for sip in sips %}
-                        
-                        <!--popup edit -->
+                        <tr>
+                            <td>{{ sip.nama }}</td>
+                            <td class="text-truncate" style="max-width: 200px;">{{ sip.email }}</td>
+                            <td>{{ sip.no_sip }}</td>
+                            <td class="text-center">{{ sip.tanggal_terbit.strftime('%d-%m-%Y') }}</td>
+                            <td class="text-center">{{ sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y') }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <button class="btn btn-sm btn-link d-flex align-items-center justify-content-center"
+                                        data-bs-toggle="modal" data-bs-target="#editModal{{ sip.id }}"
+                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Edit">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                    <a href="{{ url_for('delete_sip', id=sip.id) }}"
+                                        class="btn btn-sm btn-link d-flex align-items-center justify-content-center"
+                                        onclick="return confirm('Yakin untuk menghapus data ini?')"
+                                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Delete">
+                                        <i class="fa-solid fa-trash" style="color: red;"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
                         {% include "edit.html" %}
-                        </div>
                         {% endfor %}
-                        
-                        
+                    </tbody>
+                </table>
 
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-end">
+                        {% if sips_paginated.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="{{ url_for('index', page=sips_paginated.prev_num, search=request.args.get('search', '')) }}">←
+                                Prev</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">← Prev</span></li>
+                        {% endif %}
 
-                        <a href="{{ url_for('delete_sip', id=sip.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <!-- Tombol Tambah, Kirim Notif, Paksa -->
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-        
-  <a href="{{ url_for('trigger_force_all') }}" class="btn btn-outline-info">
-      📨🚀 Kirim Notif Telegram
-  </a>
+                        {% for page_num in sips_paginated.iter_pages(left_edge=1, right_edge=1, left_current=2,
+                        right_current=2) %}
+                        {% if page_num %}
+                        {% if page_num == sips_paginated.page %}
+                        <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="{{ url_for('index', page=page_num, search=request.args.get('search', '')) }}">{{
+                                page_num }}</a>
+                        </li>
+                        {% endif %}
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                        {% endif %}
+                        {% endfor %}
 
-  <a href="{{ url_for('send_email_massal') }}" class="btn btn-outline-primary">
-      📧 Kirim Email 
-  </a>
-  <a href="{{ url_for('send_rekap_expired') }}" class="btn btn-warning">
-    📋 Kirim Rekap Expired ke Admin
-</a>
+                        {% if sips_paginated.has_next %}
+                        <li class="page-item">
+                            <a class="page-link"
+                                href="{{ url_for('index', page=sips_paginated.next_num, search=request.args.get('search', '')) }}">Next
+                                →</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link">Next →</span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
 
+            </div>
+        </div>
 
- <!-- File: templates/index.html -->
-<form method="POST" action="{{ url_for('upload_excel') }}" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2">
-  <input type="file" name="file" class="form-control form-control-sm" accept=".xlsx,.xls" required>
-  <button type="submit" class="btn btn-outline-success btn-sm">📤 Upload Excel</button>
-</form>
+        <!-- Upload Excel -->
+        <!-- <div class="card shadow-sm mt-4">
+            <div class="card-body d-flex flex-wrap justify-content-between align-items-center">
+                <form method="POST" action="{{ url_for('upload_excel') }}" enctype="multipart/form-data"
+                    class="d-flex gap-2">
+                    <input type="file" name="file" class="form-control form-control-sm" accept=".xlsx,.xls" required>
+                    <button type="submit" class="btn btn-outline-success" style="min-width: 140px;">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Upload Excel</span>
+                    </button>
 
-</div>
-</div>
+                </form>
+            </div>
+        </div> -->
+    </div>
 
-
-
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
+        crossorigin="anonymous"></script>
+    <!-- Icon Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
 </body>
+
 </html>

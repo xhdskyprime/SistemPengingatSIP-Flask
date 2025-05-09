@@ -1,36 +1,38 @@
 <!-- Modal Edit SIP -->
-<div class="modal fade" id="editModal{{ sip.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ sip.id }}" aria-hidden="true">
-    <div class="modal-dialog">
-      <form method="POST" action="{{ url_for('edit_sip', id=sip.id) }}" class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="editModalLabel{{ sip.id }}">Edit SIP: {{ sip.nama }}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+<div class="modal fade" id="editModal{{ sip.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ sip.id }}"
+  aria-hidden="true">
+  <div class="modal-dialog" style="background-color: white; border-radius: 2%;">
+    <form method="POST" action="{{ url_for('edit_sip', id=sip.id) }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editModalLabel{{ sip.id }}">Edit Detail Surat Ijin Praktek</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Nama</label>
+          <input type="text" name="nama" value="{{ sip.nama }}" class="form-control" required>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Nama</label>
-            <input type="text" name="nama" value="{{ sip.nama }}" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" value="{{ sip.email }}" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">No SIP</label>
-            <input type="text" name="no_sip" value="{{ sip.no_sip }}" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tanggal Terbit</label>
-            <input type="date" name="tanggal_terbit" value="{{ sip.tanggal_terbit }}" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tanggal Kadaluwarsa</label>
-            <input type="date" name="tanggal_kadaluwarsa" value="{{ sip.tanggal_kadaluwarsa }}" class="form-control" required>
-          </div>
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" value="{{ sip.email }}" class="form-control" required>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+        <div class="mb-3">
+          <label class="form-label">No SIP</label>
+          <input type="text" name="no_sip" value="{{ sip.no_sip }}" class="form-control" required>
         </div>
-      </form>
-    </div>
+        <div class="mb-3">
+          <label class="form-label">Tanggal Terbit</label>
+          <input type="date" name="tanggal_terbit" value="{{ sip.tanggal_terbit }}" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tanggal Kadaluwarsa</label>
+          <input type="date" name="tanggal_kadaluwarsa" value="{{ sip.tanggal_kadaluwarsa }}" class="form-control"
+            required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+      </div>
+    </form>
+  </div>
