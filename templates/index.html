@@ -106,7 +106,6 @@
                                 </div>
                             </td>
                         </tr>
-                        {% include "edit.html" %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -170,6 +169,10 @@
             </div>
         </div> -->
     </div>
+    <!-- Modal edit SIP, diletakkan di luar tabel -->
+    {% for sip in sips %}
+    {% include "edit.html" %}
+    {% endfor %}
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
