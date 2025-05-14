@@ -11,7 +11,7 @@ from flask import session, flash, redirect, url_for
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-
+from flask_apscheduler import APScheduler
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sip.db'
@@ -27,6 +27,49 @@ class SIP(db.Model):
     tanggal_terbit = db.Column(db.Date)
     tanggal_kadaluwarsa = db.Column(db.Date)
     sudah_dikirim = db.Column(db.Boolean, default=False)
+
+class Config:
+    SCHEDULER_API_ENABLED = True
+
+app.config.from_object(Config())
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
+
+# Scheduler mingguan setiap hari Senin jam 07:00
+@scheduler.task('cron', id='weekly_sip_notif', day_of_week='wed', hour=15, minute=20)
+def scheduled_weekly_sip_notif():
+    with app.app_context():
+        print("📅 Scheduler dijalankan: Cek dan kirim notifikasi SIP")
+
+        # Kirim notifikasi Telegram dan tandai 'sudah_dikirim'
+        check_and_notify(force=False)
+
+        # Kirim email per user (massal)
+        today = datetime.today().date()
+        target_date = today + timedelta(days=180)
+        sips = SIP.query.filter(
+            SIP.tanggal_kadaluwarsa <= target_date,
+            SIP.tanggal_kadaluwarsa > today
+        ).all()
+
+        count = 0
+        for sip in sips:
+            subject = "Pengingat: SIP Akan Kadaluarsa"
+            body = (
+                f"Yth. {sip.nama},\n\n"
+                f"SIP Anda dengan nomor {sip.no_sip} akan kedaluwarsa pada {sip.tanggal_kadaluwarsa}.\n"
+                f"Silakan lakukan perpanjangan tepat waktu.\n\n"
+                f"Terima kasih."
+            )
+            if send_email(sip.email, subject, body):
+                count += 1
+
+        print(f"📧 Email massal berhasil dikirim ke {count} pengguna.")
+
+        # Kirim rekap ke admin
+        send_rekap_expired_job()
 
 @app.route('/')
 def home():
@@ -430,6 +473,61 @@ def check_and_notify(force=False):
             db.session.commit()
         elif not success:
             print("❌ Gagal kirim ke Telegram")
+
+def send_rekap_expired_job():
+    today = datetime.today().date()
+    batas_expired = today + timedelta(days=180)
+
+    sips = SIP.query.filter(
+        SIP.tanggal_kadaluwarsa.between(today, batas_expired)
+    ).order_by(SIP.tanggal_kadaluwarsa.asc()).all()
+
+    if not sips:
+        print("✅ Tidak ada SIP yang akan expired dalam 6 bulan ke depan.")
+        return
+
+    # Buat isi email rekap
+    rows = ""
+    for sip in sips:
+        sisa_hari = (sip.tanggal_kadaluwarsa - today).days
+        bulan = sisa_hari // 30
+        hari = sisa_hari % 30
+        sisa_text = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
+
+        rows += f"""
+        <tr>
+            <td>{sip.nama}</td>
+            <td>{sip.no_sip}</td>
+            <td>{sip.tanggal_kadaluwarsa}</td>
+            <td>{sisa_text}</td>
+        </tr>
+        """
+
+    html_body = f"""
+    <html>
+    <body>
+        <p>📋 Berikut daftar SIP yang akan expired dalam 6 bulan ke depan:</p>
+        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Nama</th>
+                    <th>No SIP</th>
+                    <th>Tanggal Expired</th>
+                    <th>Sisa Waktu</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+        <p>Harap segera ditindaklanjuti.</p>
+    </body>
+    </html>
+    """
+
+    send_email_html("abieperdanakusuma@gmail.com", "Rekap SIP Akan Expired", html_body)
+    print("✅ Email rekap dikirim ke admin.")
+
 
 
 def send_email_html(to, subject, html_body):
