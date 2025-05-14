@@ -29,6 +29,11 @@ class SIP(db.Model):
     sudah_dikirim = db.Column(db.Boolean, default=False)
 
 @app.route('/')
+def home():
+    return render_template("home.html")
+
+
+@app.route('/sip')
 def index():
     search_query = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
@@ -54,7 +59,7 @@ def index():
         sip.sisa_hari_format = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
 
     return render_template(
-        'index.html',
+        'sip/sip.html',
         sips=sips_paginated.items,
         sips_paginated=sips_paginated,
         today=today,
@@ -77,9 +82,9 @@ def index():
         sips = SIP.query.all()
 
     akan_expired = SIP.query.filter(
-    SIP.tanggal_kadaluwarsa <= reminder_date,
-    SIP.tanggal_kadaluwarsa > today
-).order_by(SIP.tanggal_kadaluwarsa.asc()).all()
+        SIP.tanggal_kadaluwarsa <= reminder_date,
+        SIP.tanggal_kadaluwarsa > today
+    ).order_by(SIP.tanggal_kadaluwarsa.asc()).all()
 
 
 
@@ -91,7 +96,7 @@ def index():
         sip.sisa_hari_format = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
 
     return render_template(
-        'index.html',
+        'sip/sip.html',
         sips=sips,
         today=today,
         akan_expired=akan_expired
@@ -118,7 +123,7 @@ def add_sip():
         db.session.add(new_sip)
         db.session.commit()
         return redirect(url_for('index'))
-    return render_template('add.html')
+    return render_template('sip/add.html')
 
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit_sip(id):
@@ -131,7 +136,7 @@ def edit_sip(id):
         sip.tanggal_kadaluwarsa = datetime.strptime(request.form['tanggal_kadaluwarsa'], '%Y-%m-%d')
         db.session.commit()
         return redirect(url_for('index'))
-    return render_template('edit.html', sip=sip)
+    return render_template('sip/edit.html', sip=sip)
 
 @app.route('/delete/<int:id>')
 def delete_sip(id):
@@ -227,7 +232,7 @@ def trigger_force_all():
 #                 'sisa_hari': sisa_hari  # ← tambahin ini
 #             })
 
-#     return render_template('notif_popup.html', expired_list=expired_list)
+#     return render_template('sip/notif_popup.html', expired_list=expired_list)
 
 from flask import session, flash, redirect, url_for
 
