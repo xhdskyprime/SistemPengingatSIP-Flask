@@ -11,6 +11,11 @@ from flask import session, flash, redirect, url_for
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import locale
+locale.setlocale(locale.LC_TIME, 'id_ID.UTF-8')  # untuk Linux
+# locale.setlocale(locale.LC_TIME, 'ind')        # untuk Windows (kadang 'ind' atau 'id')
+
+today_str = datetime.today().strftime('%A, %d %B %Y')  # Kamis, 15 Mei 2025
 from flask_apscheduler import APScheduler
 
 app = Flask(__name__)
@@ -38,13 +43,13 @@ scheduler.start()
 
 
 # Scheduler mingguan setiap hari Senin jam 07:00
-@scheduler.task('cron', id='weekly_sip_notif', day_of_week='wed', hour=15, minute=20)
+@scheduler.task('cron', id='weekly_sip_notif', day_of_week='thu', hour=8, minute=30)
 def scheduled_weekly_sip_notif():
     with app.app_context():
         print("📅 Scheduler dijalankan: Cek dan kirim notifikasi SIP")
 
         # Kirim notifikasi Telegram dan tandai 'sudah_dikirim'
-        check_and_notify(force=False)
+        check_and_notify(force=True)
 
         # Kirim email per user (massal)
         today = datetime.today().date()
@@ -56,10 +61,11 @@ def scheduled_weekly_sip_notif():
 
         count = 0
         for sip in sips:
+            tanggal_expired_formatted = sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y')
             subject = "Pengingat: SIP Akan Kadaluarsa"
             body = (
                 f"Yth. {sip.nama},\n\n"
-                f"SIP Anda dengan nomor {sip.no_sip} akan kedaluwarsa pada {sip.tanggal_kadaluwarsa}.\n"
+                f"SIP Anda dengan nomor {sip.no_sip} akan kedaluwarsa pada {tanggal_expired_formatted}.\n"
                 f"Silakan lakukan perpanjangan tepat waktu.\n\n"
                 f"Terima kasih."
             )
@@ -212,10 +218,11 @@ def send_email_massal():
 
     count = 0
     for sip in sips:
+        tanggal_expired_formatted = sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y')
         subject = "Pengingat: SIP Akan Kadaluarsa"
         body = (
             f"Yth. {sip.nama},\n\n"
-            f"SIP Anda dengan nomor {sip.no_sip} akan kedaluwarsa pada {sip.tanggal_kadaluwarsa}.\n"
+            f"SIP Anda dengan nomor {sip.no_sip} akan kedaluwarsa pada {tanggal_expired_formatted}.\n"
             f"Silakan lakukan perpanjangan tepat waktu.\n\n"
             f"Terima kasih."
         )
@@ -228,27 +235,10 @@ def send_email_massal():
 
 @app.route('/trigger-force-all')
 def trigger_force_all():
-    today = datetime.today().date()
-    target_date = today + timedelta(days=180)
-
-    sips = SIP.query.filter(
-        SIP.tanggal_kadaluwarsa <= target_date,
-        SIP.tanggal_kadaluwarsa > today
-    ).all()
-
-    for sip in sips:
-        message = (
-            f"🔔 Pengingat:\n"
-            f"Nama: {sip.nama}\n"
-            f"No. SIP: {sip.no_sip}\n"
-            f"Akan kedaluwarsa pada: {sip.tanggal_kadaluwarsa}\n"
-            f"Segera lakukan perpanjangan."
-        )
-        send_telegram(chat_id='430878024', message=message)
-        sip.sudah_dikirim = True
-
-    db.session.commit()
+    check_and_notify(force=True)  # Pakai mode rekap, tidak satu per satu
+    flash("✅ Notifikasi rekap berhasil dikirim ke Telegram.", "success")
     return redirect(url_for('index'))
+
 
 # @app.route('/lihat_sip_akan_expired')
 # def lihat_sip_akan_expired():
@@ -394,11 +384,13 @@ def send_rekap_expired():
         hari = sisa_hari % 30
         sisa_text = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
 
+        tanggal_expired_formatted = sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y')
+
         rows += f"""
         <tr>
             <td>{sip.nama}</td>
             <td>{sip.no_sip}</td>
-            <td>{sip.tanggal_kadaluwarsa}</td>
+            <td>{tanggal_expired_formatted}</td>
             <td>{sisa_text}</td>
         </tr>
         """
@@ -437,7 +429,8 @@ def send_telegram(chat_id, message):
     url = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
     payload = {
         'chat_id': chat_id,
-        'text': message
+        'text': message,
+        'parse_mode': 'Markdown'
     }
     response = requests.post(url, data=payload)
     print(response.text)  # DEBUG
@@ -450,29 +443,45 @@ def check_and_notify(force=False):
 
     filter_criteria = [
         SIP.tanggal_kadaluwarsa <= target_date,
-        SIP.tanggal_kadaluwarsa > today
+        SIP.tanggal_kadaluwarsa >= today  # termasuk hari ini
     ]
     if not force:
         filter_criteria.append(SIP.sudah_dikirim == False)
 
-    sips = SIP.query.filter(*filter_criteria).all()
+    sips = SIP.query.filter(*filter_criteria).order_by(SIP.tanggal_kadaluwarsa).all()
 
-    print(f"Jumlah data yang akan dikirim: {len(sips)}")
+    if not sips:
+        print("✅ Tidak ada data yang perlu dikirim.")
+        return
+
+    # Buat pesan rekap
+    message = f"📋 *REKAP SIP AKAN EXPIRED (≤ 6 Bulan)*\n\nPer hari *{today_str}*\n\n"
+    message += f"Total: {len(sips)} Pegawai\n\n"
+    message += "*Nama* | *No SIP* | *Tgl Exp* | *Sisa*\n"
+    message += "------------------------------------\n"
+
     for sip in sips:
-        print(f"Kirim ke: {sip.nama}, Expired: {sip.tanggal_kadaluwarsa}, Sudah Dikirim: {sip.sudah_dikirim}")
-        message = (
-            f"🔔 Pengingat:\n"
-            f"Nama: {sip.nama}\n"
-            f"No. SIP: {sip.no_sip}\n"
-            f"Akan kedaluwarsa pada: {sip.tanggal_kadaluwarsa}\n"
-            f"Segera lakukan perpanjangan."
-        )
-        success = send_telegram(chat_id='430878024', message=message)
-        if success and not sip.sudah_dikirim:
+        sisa_hari = (sip.tanggal_kadaluwarsa - today).days
+        bulan = sisa_hari // 30
+        hari = sisa_hari % 30
+        sisa = f"{bulan} bln {hari} hr" if bulan > 0 else f"{hari} hr"
+
+        tgl_exp = sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y')  # format DD-MM-YYYY
+
+        message += f"{sip.nama} | {sip.no_sip} | {tgl_exp} | {sisa}\n"
+
+        # Tandai sudah dikirim agar tidak kirim ulang
+        if not force:
             sip.sudah_dikirim = True
-            db.session.commit()
-        elif not success:
-            print("❌ Gagal kirim ke Telegram")
+
+    if not force:
+        db.session.commit()
+
+    # Kirim ke semua chat_id
+    chat_ids = ['430878024', '5829131684']
+    for chat_id in chat_ids:
+        send_telegram(chat_id=chat_id, message=message)
+
 
 def send_rekap_expired_job():
     today = datetime.today().date()
@@ -494,11 +503,13 @@ def send_rekap_expired_job():
         hari = sisa_hari % 30
         sisa_text = f"{bulan} bulan {hari} hari lagi" if bulan > 0 else f"{hari} hari lagi"
 
+        tanggal_expired_formatted = sip.tanggal_kadaluwarsa.strftime('%d-%m-%Y')
+
         rows += f"""
         <tr>
             <td>{sip.nama}</td>
             <td>{sip.no_sip}</td>
-            <td>{sip.tanggal_kadaluwarsa}</td>
+            <td>{tanggal_expired_formatted}</td>
             <td>{sisa_text}</td>
         </tr>
         """
